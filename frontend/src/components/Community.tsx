@@ -27,15 +27,23 @@ interface ForumPost {
 }
 
 // Supabase types
-interface SupabasePost {
+interface SupabaseUserRef {
+  full_name?: string | null;
+  email?: string | null;
+}
+
+interface SupabasePostRow {
   id: string;
   title: string;
   category: string;
   preview: string;
-  tags: string[];
-  likes_count: number;
-  replies_count: number;
+  tags: string[] | null;
+  likes_count: number | null;
+  replies_count: number | null;
   created_at: string;
+  is_pinned?: boolean | null;
+  user_id?: string | null;
+  users?: SupabaseUserRef | SupabaseUserRef[] | null;
 }
 
 const Community = () => {
@@ -96,26 +104,26 @@ const Community = () => {
         try { localStorage.setItem('auth:supabaseUserId', found); } catch (e) { console.warn('Community: cache supabase user id failed', e); }
         return found;
       }
-      // 4) Create a new users row and return its id (schema requires id uuid; generate in client)
+      // 4) Upsert a new users row and return its id (schema requires id uuid; generate in client) using email as unique key
       try {
         const newId = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
           ? crypto.randomUUID()
           : `${Date.now()}-${Math.random()}`;
-        const { data: inserted, error: insErr } = await supabase
+        const { data: upserted, error: upErr } = await supabase
           .from('users')
-          .insert({ id: newId, email: user.email, full_name: user.fullName || 'Student' })
+          .upsert({ id: newId, email: user.email, full_name: user.fullName || 'Student' })
           .select('id')
           .single();
-        if (insErr) {
-          console.error('Community: failed to insert users row', insErr);
+        if (upErr) {
+          console.error('Community: failed to upsert users row', upErr);
         }
-        if (inserted?.id) {
-          const nid = String(inserted.id);
+        if (upserted?.id) {
+          const nid = String(upserted.id);
           try { localStorage.setItem('auth:supabaseUserId', nid); } catch (e) { console.warn('Community: cache new supabase user id failed', e); }
           return nid;
         }
       } catch (e) {
-        console.error('Community: exception creating users row', e);
+        console.error('Community: exception upserting users row', e);
       }
     }
     return null;
@@ -125,35 +133,30 @@ const Community = () => {
     const fetchPosts = async () => {
       const { data, error } = await supabase
         .from("posts")
-        .select("id, title, category, preview, tags, likes_count, replies_count, created_at")
+        .select("id, title, category, preview, tags, likes_count, replies_count, created_at, user_id, users(full_name, email)")
         .order("created_at", { ascending: false });
       if (error) {
         console.error("Error fetching posts:", error.message);
         setAllForumPosts([]);
       } else {
+        const rows: SupabasePostRow[] = (data as unknown as SupabasePostRow[]) || [];
         setAllForumPosts(
-          (data || []).map((p: {
-            id: string;
-            title: string;
-            category: string;
-            preview: string;
-            tags: string[];
-            likes_count: number;
-            replies_count: number;
-            is_pinned?: boolean;
-            created_at: string;
-          }) => ({
-            id: String(p.id),
-            title: p.title,
-            author: "Anonymous Student",
-            category: p.category,
-            timeAgo: "", // TODO: format from created_at
-            replies: p.replies_count ?? 0,
-            likes: p.likes_count ?? 0,
-            isPinned: p.is_pinned ?? false,
-            preview: p.preview,
-            tags: p.tags || [],
-          }))
+          rows.map((p) => {
+            const u = Array.isArray(p.users) ? p.users[0] : p.users;
+            const authorName = u?.full_name || (u?.email ? u.email.split('@')[0] : 'Student');
+            return {
+              id: String(p.id),
+              title: p.title,
+              author: authorName,
+              category: p.category,
+              timeAgo: "", // TODO: format from created_at
+              replies: p.replies_count ?? 0,
+              likes: p.likes_count ?? 0,
+              isPinned: p.is_pinned ?? false,
+              preview: p.preview,
+              tags: p.tags || [],
+            };
+          })
         );
       }
     };
@@ -297,21 +300,26 @@ const Community = () => {
     // Refresh posts
     const { data } = await supabase
       .from("posts")
-      .select("id, title, category, preview, tags, likes_count, replies_count, created_at")
+      .select("id, title, category, preview, tags, likes_count, replies_count, created_at, user_id, users(full_name, email)")
       .order("created_at", { ascending: false });
+    const rows2: SupabasePostRow[] = (data as unknown as SupabasePostRow[]) || [];
     setAllForumPosts(
-      (data || []).map((p: SupabasePost) => ({
-        id: p.id,
-        title: p.title,
-        author: "Anonymous Student",
-        category: p.category,
-        timeAgo: "",
-        replies: p.replies_count ?? 0,
-        likes: p.likes_count ?? 0,
-        isPinned: false,
-        preview: p.preview,
-        tags: p.tags || [],
-      }))
+      rows2.map((p) => {
+        const u = Array.isArray(p.users) ? p.users[0] : p.users;
+        const authorName = u?.full_name || (u?.email ? u.email.split('@')[0] : 'Student');
+        return {
+          id: p.id,
+          title: p.title,
+          author: authorName,
+          category: p.category,
+          timeAgo: "",
+          replies: p.replies_count ?? 0,
+          likes: p.likes_count ?? 0,
+          isPinned: p.is_pinned ?? false,
+          preview: p.preview,
+          tags: p.tags || [],
+        };
+      })
     );
     setCreatingPost(false);
   };
