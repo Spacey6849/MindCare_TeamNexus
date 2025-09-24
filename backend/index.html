@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Therapy Assistant - Student Mental Health Support</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- =============================================================================== -->
+    <!-- MAIN CONTAINER -->
+    <!-- =============================================================================== -->
+    <div class="app-container">
+        
+        <!-- =============================================================================== -->
+        <!-- HEADER SECTION -->
+        <!-- =============================================================================== -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <i class="fas fa-heart header-icon"></i>
+                    <h1>Therapy Assistant</h1>
+                </div>
+                <div class="header-info">
+                    <span class="status-indicator">
+                        <i class="fas fa-circle online"></i>
+                        Available 24/7
+                    </span>
+                </div>
+            </div>
+            <div class="header-subtitle">
+                <p>Confidential mental health support for college students</p>
+            </div>
+        </header>
+
+        <!-- =============================================================================== -->
+        <!-- MAIN CHAT INTERFACE -->
+        <!-- =============================================================================== -->
+        <main class="chat-main">
+            <!-- Chat Messages Container -->
+            <div class="chat-container" id="chatContainer">
+                
+                <!-- Welcome Message -->
+                <div class="message-wrapper bot-message">
+                    <div class="message-avatar">
+                        <i class="fas fa-heart"></i>
+                    </div>
+                    <div class="message-content">
+                        <div class="message-bubble bot">
+                            <div class="message-text">
+                                <h3>Welcome to your therapy assistant 💙</h3>
+                                <p>I'm here to provide emotional support, coping strategies, and help connect you with professional resources when needed.</p>
+                                <div class="welcome-features">
+                                    <div class="feature-item">
+                                        <i class="fas fa-lock"></i>
+                                        <span>Completely confidential</span>
+                                    </div>
+                                    <div class="feature-item">
+                                        <i class="fas fa-clock"></i>
+                                        <span>Available anytime</span>
+                                    </div>
+                                    <div class="feature-item">
+                                        <i class="fas fa-graduation-cap"></i>
+                                        <span>Designed for students</span>
+                                    </div>
+                                </div>
+                                <p class="disclaimer">
+                                    <i class="fas fa-info-circle"></i>
+                                    <strong>Important:</strong> I'm a supportive assistant, not a replacement for professional therapy. 
+                                    For serious mental health concerns, I'll help connect you with qualified counselors.
+                                </p>
+                            </div>
+                            <div class="message-time">Just now</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Start Options -->
+                <div class="quick-options-container">
+                    <h4>How can I help you today?</h4>
+                    <div class="quick-options">
+                        <button class="quick-option" data-message="I'm feeling anxious about my studies">
+                            <i class="fas fa-brain"></i>
+                            Academic Anxiety
+                        </button>
+                        <button class="quick-option" data-message="I'm feeling overwhelmed and stressed">
+                            <i class="fas fa-cloud-rain"></i>
+                            Feeling Overwhelmed
+                        </button>
+                        <button class="quick-option" data-message="I'm having trouble sleeping">
+                            <i class="fas fa-moon"></i>
+                            Sleep Issues
+                        </button>
+                        <button class="quick-option" data-message="I feel isolated and lonely">
+                            <i class="fas fa-users"></i>
+                            Social Support
+                        </button>
+                        <button class="quick-option" data-message="I need help with time management">
+                            <i class="fas fa-calendar-check"></i>
+                            Time Management
+                        </button>
+                        <button class="quick-option" data-message="I just want to talk to someone">
+                            <i class="fas fa-comments"></i>
+                            Just Want to Talk
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Loading Indicator (Hidden by default) -->
+                <div class="loading-message" id="loadingMessage" style="display: none;">
+                    <div class="message-wrapper bot-message">
+                        <div class="message-avatar">
+                            <i class="fas fa-heart"></i>
+                        </div>
+                        <div class="message-content">
+                            <div class="message-bubble bot">
+                                <div class="typing-indicator">
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- =============================================================================== -->
+            <!-- CHAT INPUT SECTION -->
+            <!-- =============================================================================== -->
+            <div class="chat-input-container">
+                <div class="input-wrapper">
+                    <div class="input-area">
+                        <textarea 
+                            id="messageInput" 
+                            placeholder="Share what's on your mind... I'm here to listen and help."
+                            rows="1"
+                            maxlength="1000"
+                        ></textarea>
+                        <div class="input-actions">
+                            <button id="sendButton" class="send-button" disabled>
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="input-info">
+                        <span class="char-count" id="charCount">0/1000</span>
+                        <span class="privacy-notice">
+                            <i class="fas fa-shield-alt"></i>
+                            Your conversations are private and secure
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- =============================================================================== -->
+        <!-- SIDEBAR WITH RESOURCES (Initially Hidden) -->
+        <!-- =============================================================================== -->
+        <aside class="resources-sidebar" id="resourcesSidebar">
+            <div class="sidebar-header">
+                <h3><i class="fas fa-life-ring"></i> Mental Health Resources</h3>
+                <button class="close-sidebar" id="closeSidebar">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="sidebar-content">
+                <!-- Crisis Resources -->
+                <div class="resource-section">
+                    <h4 class="emergency-header">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Emergency Support
+                    </h4>
+                    <div class="resource-item emergency">
+                        <div class="resource-title">National Suicide Prevention Lifeline</div>
+                        <div class="resource-contact">988</div>
+                        <div class="resource-description">24/7 crisis support</div>
+                    </div>
+                    <div class="resource-item emergency">
+                        <div class="resource-title">Crisis Text Line</div>
+                        <div class="resource-contact">Text HOME to 741741</div>
+                        <div class="resource-description">24/7 text support</div>
+                    </div>
+                </div>
+
+                <!-- College Resources -->
+                <div class="resource-section">
+                    <h4><i class="fas fa-university"></i> Campus Resources</h4>
+                    <div class="resource-item">
+                        <div class="resource-title">College Counseling Center</div>
+                        <div class="resource-description">Free confidential counseling for students</div>
+                        <button class="resource-action">Contact Info</button>
+                    </div>
+                    <div class="resource-item">
+                        <div class="resource-title">Student Health Services</div>
+                        <div class="resource-description">Medical and mental health support</div>
+                        <button class="resource-action">Learn More</button>
+                    </div>
+                </div>
+
+                <!-- Self-Help Resources -->
+                <div class="resource-section">
+                    <h4><i class="fas fa-book"></i> Self-Help Tools</h4>
+                    <div class="resource-item">
+                        <div class="resource-title">Breathing Exercises</div>
+                        <div class="resource-description">Quick anxiety relief techniques</div>
+                        <button class="resource-action">Try Now</button>
+                    </div>
+                    <div class="resource-item">
+                        <div class="resource-title">Mindfulness Guides</div>
+                        <div class="resource-description">Meditation and grounding exercises</div>
+                        <button class="resource-action">Explore</button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- =============================================================================== -->
+        <!-- FLOATING ACTION BUTTONS -->
+        <!-- =============================================================================== -->
+        <div class="floating-actions">
+            <button class="fab resources-btn" id="resourcesBtn" title="Mental Health Resources">
+                <i class="fas fa-life-ring"></i>
+            </button>
+            <button class="fab new-chat-btn" id="newChatBtn" title="Start New Conversation">
+                <i class="fas fa-plus"></i>
+            </button>
+        </div>
+
+        <!-- =============================================================================== -->
+        <!-- FOOTER -->
+        <!-- =============================================================================== -->
+        <footer class="app-footer">
+            <div class="footer-content">
+                <p class="footer-disclaimer">
+                    This therapy assistant provides supportive guidance but is not a substitute for professional mental health care. 
+                    If you're experiencing a mental health emergency, please contact emergency services or a crisis hotline immediately.
+                </p>
+                <div class="footer-links">
+                    <a href="#">Privacy Policy</a>
+                    <a href="#">Terms of Service</a>
+                    <a href="#">Contact Support</a>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="script.js"></script>
+</body>
+</html>

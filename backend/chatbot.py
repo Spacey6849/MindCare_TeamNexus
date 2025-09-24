@@ -211,7 +211,7 @@ async def chat_endpoint(request: Request, chat: ChatRequest):
         # AI PROCESSING STEP: Send to Ollama with TheraBot parameters
         ollama_url = "http://localhost:11434/api/generate"
         payload = {
-            "model": "gemma3:4b",
+            "model": "gemma3:latest",
             "prompt": enhanced_prompt,
             "stream": False,
             "options": TherapyAssistant.OLLAMA_PARAMETERS
@@ -273,10 +273,49 @@ async def get_conversation(session_id: str):
             "exists": session_info["exists"],
             "message_count": session_info["message_count"],
             "conversation": history,
+            "personality": TherapyAssistant.CURRENT_PERSONALITY,
             "status": "success"
         }
     except Exception as e:
         return error_handler.server_error(f"Failed to retrieve conversation: {str(e)}")
+
+# ===============================================================================
+# API ENDPOINTS - PERSONALITY MANAGEMENT
+# ===============================================================================
+@app.get("/personality")
+async def get_current_personality():
+    """Get information about the current therapy assistant configuration and available therapeutic approaches."""
+    return {
+        "current_personality": TherapyAssistant.CURRENT_PERSONALITY,
+        "available_personalities": list(TherapyAssistant.THERAPY_PERSONALITIES.keys()),
+        "description": TherapyAssistant.THERAPY_PERSONALITIES[TherapyAssistant.CURRENT_PERSONALITY],
+        "therapeutic_focus": "College student mental health support and professional referrals",
+        "status": "success"
+    }
+
+@app.post("/personality")
+async def update_personality(request: PersonalityUpdateRequest):
+    """
+    Change the therapy assistant's therapeutic approach. This affects the default approach for new conversations.
+    The system still dynamically selects the most appropriate approach based on message content.
+    """
+    try:
+        if request.personality not in TherapyAssistant.THERAPY_PERSONALITIES:
+            available = list(TherapyAssistant.THERAPY_PERSONALITIES.keys())
+            return error_handler.validation_error(f"Invalid therapeutic approach. Available options: {available}")
+        
+        old_personality = TherapyAssistant.CURRENT_PERSONALITY
+        TherapyAssistant.CURRENT_PERSONALITY = request.personality
+        
+        return {
+            "message": f"Default therapeutic approach updated from '{old_personality}' to '{request.personality}'",
+            "new_personality": request.personality,
+            "description": TherapyAssistant.THERAPY_PERSONALITIES[request.personality],
+            "note": "System still dynamically selects approach based on message content",
+            "status": "success"
+        }
+    except Exception as e:
+        return error_handler.server_error(f"Failed to update therapeutic approach: {str(e)}")
 
 # ===============================================================================
 # API ENDPOINTS - SYSTEM STATUS
@@ -289,6 +328,7 @@ async def system_status():
         return {
             "status": "running",
             "active_sessions": len(all_sessions),
+            "current_personality": TherapyAssistant.CURRENT_PERSONALITY,
             "therapeutic_focus": "College student mental health support",
             "crisis_detection": "Enabled with automatic referral suggestions",
             "security_features": {
@@ -300,6 +340,31 @@ async def system_status():
         }
     except Exception as e:
         return error_handler.server_error(f"Failed to get system status: {str(e)}")
+
+# ===============================================================================
+# API ENDPOINTS - THERAPY-SPECIFIC FEATURES
+# ===============================================================================
+@app.post("/crisis-check")
+async def crisis_check(request: CrisisCheckRequest):
+    """
+    Check if a message contains crisis indicators for immediate intervention.
+    This endpoint can be used for pre-screening or admin monitoring.
+    """
+    try:
+        is_crisis = TherapyAssistant.detect_crisis(request.message)
+        is_academic_stress = TherapyAssistant.detect_academic_stress(request.message)
+        recommended_approach = TherapyAssistant.get_appropriate_personality(request.message)
+        
+        return {
+            "message": request.message[:100] + "..." if len(request.message) > 100 else request.message,
+            "crisis_detected": is_crisis,
+            "academic_stress_detected": is_academic_stress,
+            "recommended_approach": recommended_approach,
+            "urgent_referral_needed": is_crisis,
+            "status": "success"
+        }
+    except Exception as e:
+        return error_handler.server_error(f"Failed to perform crisis check: {str(e)}")
 
 @app.get("/resources")
 async def get_mental_health_resources():
