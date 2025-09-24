@@ -1,4 +1,4 @@
-# TheraBot - AI-Powered Mental Health Support Platform
+# MindCare - AI-Powered Mental Health Support Platform
 
 **A comprehensive mental health support ecosystem designed specifically for educational institutions, combining AI therapy assistance with professional counseling and peer support systems.**
 
