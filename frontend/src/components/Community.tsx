@@ -68,6 +68,7 @@ const Community = () => {
   const [newPostContent, setNewPostContent] = useState("");
   const [newPostCategory, setNewPostCategory] = useState("");
   const [newPostTags, setNewPostTags] = useState<string[]>([]);
+  const [creatingPost, setCreatingPost] = useState(false);
 
   // Resolve or create a Supabase users.id for the current app user
   const resolveSupabaseUserId = async (): Promise<string | null> => {
@@ -95,16 +96,26 @@ const Community = () => {
         try { localStorage.setItem('auth:supabaseUserId', found); } catch (e) { console.warn('Community: cache supabase user id failed', e); }
         return found;
       }
-      // 4) Create a new users row and return its id
-      const { data: inserted, error: insErr } = await supabase
-        .from('users')
-        .insert({ email: user.email, full_name: user.fullName || 'Student' })
-        .select('id')
-        .single();
-      if (!insErr && inserted?.id) {
-        const nid = String(inserted.id);
-        try { localStorage.setItem('auth:supabaseUserId', nid); } catch (e) { console.warn('Community: cache new supabase user id failed', e); }
-        return nid;
+      // 4) Create a new users row and return its id (schema requires id uuid; generate in client)
+      try {
+        const newId = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random()}`;
+        const { data: inserted, error: insErr } = await supabase
+          .from('users')
+          .insert({ id: newId, email: user.email, full_name: user.fullName || 'Student' })
+          .select('id')
+          .single();
+        if (insErr) {
+          console.error('Community: failed to insert users row', insErr);
+        }
+        if (inserted?.id) {
+          const nid = String(inserted.id);
+          try { localStorage.setItem('auth:supabaseUserId', nid); } catch (e) { console.warn('Community: cache new supabase user id failed', e); }
+          return nid;
+        }
+      } catch (e) {
+        console.error('Community: exception creating users row', e);
       }
     }
     return null;
@@ -242,6 +253,7 @@ const Community = () => {
   };
 
   const handleCreatePost = async () => {
+    if (creatingPost) return;
     if (!newPostTitle.trim() || !newPostContent.trim()) {
       toast.error("Title and content required.");
       return;
@@ -252,17 +264,30 @@ const Community = () => {
       toast.error("You must be logged in to post.");
       return;
     }
-    await supabase.from("posts").insert({
-      user_id: effectiveUserId,
-      title: newPostTitle,
-      content: newPostContent,
-      preview: newPostContent.slice(0, 100),
-      category: newPostCategory || "General",
-      tags: newPostTags,
-      is_pinned: false,
-      likes_count: 0,
-      replies_count: 0
-    });
+    setCreatingPost(true);
+    const { data: created, error: createErr } = await supabase
+      .from("posts")
+      .insert({
+        user_id: effectiveUserId,
+        title: newPostTitle,
+        content: newPostContent,
+        preview: newPostContent.slice(0, 100),
+        category: newPostCategory || "General",
+        tags: newPostTags,
+        is_pinned: false,
+        likes_count: 0,
+        replies_count: 0
+      })
+      .select('id')
+      .single();
+    if (createErr) {
+      console.error('Create post failed:', createErr);
+      const msg = (createErr as { message?: string }).message || 'Failed to create post';
+      toast.error(msg.includes('duplicate') || msg.includes('conflict') ? 'A similar post already exists.' : 'Failed to create post.');
+      setCreatingPost(false);
+      return;
+    }
+    // Success
     setShowNewPost(false);
     setNewPostTitle("");
     setNewPostContent("");
@@ -288,6 +313,7 @@ const Community = () => {
         tags: p.tags || [],
       }))
     );
+    setCreatingPost(false);
   };
 
   const categoryColors = {
