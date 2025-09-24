@@ -12,7 +12,7 @@ import {
   Clock,
   Activity
 } from "lucide-react";
-import { TherabotAPI } from "@/lib/api";
+import { MindCareAIAPI } from "@/lib/api";
 
 interface ResourceData {
   emergency_contacts: {
@@ -48,7 +48,7 @@ const BackendResourcesPage = () => {
   const fetchResources = async () => {
     try {
       setLoading(true);
-      const data = await TherabotAPI.getResources();
+  const data = await MindCareAIAPI.getResources();
       setResources(data);
       setError(null);
     } catch (err) {

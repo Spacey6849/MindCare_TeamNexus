@@ -61,6 +61,32 @@ BEGIN
 END;
 $$;
 
+-- ---------- migration helper: ensure columns exist and backfill from metadata ----------
+-- These ALTERs are safe to re-run; they won't drop data. Run this block once in Supabase SQL editor
+-- if your existing database was created before password/email verification columns were added.
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS password_hash text;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_email_verified boolean DEFAULT false;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS email_verification_token text;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS token_expires_at timestamptz;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS metadata jsonb DEFAULT '{}'::jsonb;
+
+-- Backfill from metadata if an earlier app version stored these there
+UPDATE public.users
+SET password_hash = COALESCE(password_hash, metadata->>'password_hash')
+WHERE (metadata ? 'password_hash') AND password_hash IS NULL;
+
+UPDATE public.users
+SET is_email_verified = COALESCE(is_email_verified, (metadata->>'is_email_verified')::boolean)
+WHERE (metadata ? 'is_email_verified') AND is_email_verified IS NULL;
+
+UPDATE public.users
+SET email_verification_token = COALESCE(email_verification_token, metadata->>'email_verification_token')
+WHERE (metadata ? 'email_verification_token') AND email_verification_token IS NULL;
+
+-- Optional: if you want to clean metadata keys after backfill, uncomment the line below
+-- UPDATE public.users SET metadata = metadata - 'password_hash' - 'is_email_verified' - 'email_verification_token'
+-- WHERE (metadata ? 'password_hash') OR (metadata ? 'is_email_verified') OR (metadata ? 'email_verification_token');
+
 -- Allow the auth role to execute this SECURITY DEFINER function so the trigger can call it
 DO $$
 BEGIN
@@ -161,11 +187,12 @@ CREATE TABLE IF NOT EXISTS public.posts (
   user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   title text NOT NULL,
   content text NOT NULL,
+  preview text,
   category text,
   tags text[] DEFAULT ARRAY[]::text[],
   is_pinned boolean DEFAULT FALSE,
-  likes_count int DEFAULT 0,
-  replies_count int DEFAULT 0,
+  likes_count int4 DEFAULT 0,
+  replies_count int4 DEFAULT 0,
   created_at timestamptz NOT NULL DEFAULT NOW(),
   updated_at timestamptz NOT NULL DEFAULT NOW()
 );
@@ -245,7 +272,6 @@ CREATE TABLE IF NOT EXISTS public.chat_messages (
 
 CREATE INDEX IF NOT EXISTS idx_chat_messages_user_created ON public.chat_messages (user_id, created_at DESC);
 
--- ---------- utility functions ----------
 CREATE OR REPLACE FUNCTION public.increment_post_likes(p_post_id uuid, p_delta int DEFAULT 1)
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
@@ -260,6 +286,32 @@ BEGIN
 END;
 $$;
 
--- -------------------------------
--- End of schema
--- -------------------------------
+-- ---------- post_likes ----------
+CREATE TABLE IF NOT EXISTS public.post_likes (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  post_id uuid NOT NULL REFERENCES public.posts(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT NOW(),
+  UNIQUE(post_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_post_likes_post_id ON public.post_likes (post_id);
+
+-- ---------- post_replies ----------
+CREATE TABLE IF NOT EXISTS public.post_replies (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  post_id uuid NOT NULL REFERENCES public.posts(id) ON DELETE CASCADE,
+  user_id uuid REFERENCES public.users(id) ON DELETE SET NULL,
+  content text NOT NULL,
+  is_anonymous boolean DEFAULT FALSE,
+  created_at timestamptz NOT NULL DEFAULT NOW(),
+  updated_at timestamptz NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_post_replies_post_id ON public.post_replies (post_id);
+
+DROP TRIGGER IF EXISTS trg_post_replies_set_updated_at ON public.post_replies;
+CREATE TRIGGER trg_post_replies_set_updated_at
+BEFORE UPDATE ON public.post_replies
+FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+

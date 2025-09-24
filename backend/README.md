@@ -1,6 +1,7 @@
 # MindCare Backend (Consolidated)
 
 This backend contains:
+
 - FastAPI server (`chatbot.py`) for AI chat streaming and utilities
 - Node Express server (`server.js`) for custom auth using `public.users` and Nodemailer emails
 
@@ -27,14 +28,17 @@ FRONTEND_URL=http://localhost:8080
 ```
 
 Install deps:
+
 - Python (in `backend`): `pip install -r requirements.txt`
 - Node (in `backend`): `npm install`
 
 Start servers (in separate terminals):
+
 - FastAPI: `python -m uvicorn chatbot:app --host 127.0.0.1 --port 8000`
 - Node: `node server.js` (or `npm run dev` if you add it)
 
 ## API
+
 - POST `/student/signup` — create user in `public.users` with hashed password
 - POST `/student/login` — authenticate against `public.users`
 - GET `/health` — health check

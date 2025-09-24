@@ -10,6 +10,8 @@ backend-node/node_modules/
 # Python venv
 venv/
 .env
+__pycache__/
+*.pyc
 
 # log files
 *.log

@@ -21,6 +21,9 @@ import PeerHelperApplicationPage from "./pages/PeerHelperApplicationPage";
 import LoginPage from "./pages/LoginPage";
 import SignUpPage from "./pages/SignUpPage";
 import PostDetailPage from "./pages/PostDetailPage";
+import ProfilePage from "./pages/ProfilePage";
+import VerifyEmailPage from "./pages/VerifyEmailPage";
+import SpeechChatPage from "./pages/SpeechChatPage";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import MainLayout from "./components/MainLayout";
@@ -38,7 +41,9 @@ const App = () => (
             {/* Public Routes */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignUpPage />} />
+            <Route path="/verify-email" element={<VerifyEmailPage />} />
             <Route path="/" element={<Index />} />
+            <Route path="/speech-chat" element={<SpeechChatPage />} />
 
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>
@@ -49,6 +54,7 @@ const App = () => (
                   <Route path="/resources/backend" element={<BackendResourcesPage />} />
                   <Route path="/community" element={<CommunityPage />} />
                   <Route path="/community/post/:postId" element={<PostDetailPage />} />
+                  <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/peer-helper-application" element={<PeerHelperApplicationPage />} />
               </Route>
 

@@ -1,14 +1,15 @@
-# TheraBot Frontend-Backend Integration
+# MindCareAI Frontend-Backend Integration
 
-This document describes how the new frontend connects to the existing TheraBot backend API.
+This document describes how the new frontend connects to the existing MindCareAI backend API.
 
 ## Backend Connection Overview
 
-The new frontend in `c:\VS CODE\SIH_Joel\new_frontend` has been updated to connect to the existing TheraBot backend server running on `http://127.0.0.1:8000`.
+The new frontend has been updated to connect to the existing MindCareAI backend server running on `http://127.0.0.1:8000`.
 
 ## Updated Components
 
 ### 1. AIChat Component (`src/components/AIChat.tsx`)
+
 - **Updated**: Added full backend integration with session management
 - **Features**:
   - Connects to `/chat` endpoint for real AI responses
@@ -17,17 +18,19 @@ The new frontend in `c:\VS CODE\SIH_Joel\new_frontend` has been updated to conne
   - Supports both manual messages and quick actions
 
 ### 2. API Configuration (`src/lib/api.ts`)
+
 - **New**: Centralized API configuration and helper functions
 - **Features**:
   - Centralized endpoint configuration
   - Type-safe request/response interfaces
-  - Helper class `TherabotAPI` with methods:
+  - Helper class `MindCareAIAPI` with methods:
     - `sendMessage(message, sessionId)` - Send chat messages
     - `createNewSession()` - Create new conversation sessions
     - `getStatus()` - Check server status
     - `getResources()` - Fetch mental health resources
 
 ### 3. Backend Resources Page (`src/pages/BackendResourcesPage.tsx`)
+
 - **New**: Component to display backend mental health resources
 - **Features**:
   - Fetches resources from `/resources` endpoint
@@ -36,6 +39,7 @@ The new frontend in `c:\VS CODE\SIH_Joel\new_frontend` has been updated to conne
   - Includes loading states and error handling
 
 ### 4. Backend Status Checker (`src/components/BackendStatusChecker.tsx`)
+
 - **New**: Real-time backend connectivity checker
 - **Features**:
   - Checks `/status` endpoint to verify server connectivity
@@ -44,19 +48,20 @@ The new frontend in `c:\VS CODE\SIH_Joel\new_frontend` has been updated to conne
 
 ## Backend API Endpoints Used
 
-| Endpoint | Method | Purpose | Status |
-|----------|--------|---------|--------|
-| `/chat` | POST | Main chat functionality | ✅ Integrated |
-| `/new-session` | POST | Create new conversation session | ✅ Available |
-| `/status` | GET | Server health check | ✅ Integrated |
-| `/resources` | GET | Mental health resources | ✅ Integrated |
-| `/conversation/{session_id}` | GET | Get conversation history | ⚠️ Not used yet |
-| `/personality` | GET/POST | Get/set bot personality | ⚠️ Not used yet |
-| `/crisis-check` | POST | Crisis detection | ⚠️ Not used yet |
+| Endpoint                     | Method   | Purpose                         | Status          |
+| ---------------------------- | -------- | ------------------------------- | --------------- |
+| `/chat`                      | POST     | Main chat functionality         | ✅ Integrated   |
+| `/new-session`               | POST     | Create new conversation session | ✅ Available    |
+| `/status`                    | GET      | Server health check             | ✅ Integrated   |
+| `/resources`                 | GET      | Mental health resources         | ✅ Integrated   |
+| `/conversation/{session_id}` | GET      | Get conversation history        | ⚠️ Not used yet |
+| `/personality`               | GET/POST | Get/set bot personality         | ⚠️ Not used yet |
+| `/crisis-check`              | POST     | Crisis detection                | ⚠️ Not used yet |
 
 ## Request/Response Format
 
 ### Chat Request
+
 ```typescript
 {
   message: string;
@@ -65,6 +70,7 @@ The new frontend in `c:\VS CODE\SIH_Joel\new_frontend` has been updated to conne
 ```
 
 ### Chat Response
+
 ```typescript
 {
   response: string;
@@ -78,18 +84,22 @@ The new frontend in `c:\VS CODE\SIH_Joel\new_frontend` has been updated to conne
 ## Installation & Setup
 
 ### 1. Install Dependencies
+
 ```bash
 cd c:\VS CODE\SIH_Joel\new_frontend
 npm install
 ```
 
 ### 2. Start Backend Server
+
 Use the new batch file:
+
 ```bash
-c:\VS CODE\SIH_Joel\bat\start_therabot_new.bat
+start_mindcareai.bat
 ```
 
 Or manually:
+
 ```bash
 # Terminal 1: Start Ollama
 ollama serve
@@ -105,6 +115,7 @@ npm run dev
 ```
 
 ### 3. Access the Application
+
 - Frontend: http://127.0.0.1:8080
 - Backend API: http://127.0.0.1:8000
 - API Docs: http://127.0.0.1:8000/docs
@@ -112,6 +123,7 @@ npm run dev
 ## CORS Configuration
 
 The backend is already configured to allow requests from:
+
 - `http://localhost:8080`
 - `http://127.0.0.1:8080`
 - `http://localhost:3000`
@@ -119,6 +131,7 @@ The backend is already configured to allow requests from:
 ## Error Handling
 
 All API calls include proper error handling:
+
 - Network errors show user-friendly messages
 - Timeout handling for slow responses
 - Fallback messages when API is unavailable
@@ -133,6 +146,7 @@ All API calls include proper error handling:
 ## Security Features
 
 The backend includes:
+
 - Rate limiting (handled automatically)
 - Input validation (handled by backend)
 - CORS protection

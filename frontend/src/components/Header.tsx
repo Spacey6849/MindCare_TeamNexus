@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabaseClient";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -11,7 +12,8 @@ const Header = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    // also sign out of Supabase (AuthContext also calls this, but double-call is harmless)
+    supabase.auth.signOut().finally(() => navigate('/login'));
   };
 
   const commonNavItems = [
@@ -24,7 +26,7 @@ const Header = () => {
   const adminNavItem = { name: "Admin Panel", href: "/admin" };
 
   // FIX: The role for the demo admin is 'superadmin'. This correctly adds the admin link to the nav.
-  const navItems = user?.role === 'superadmin' ? [...commonNavItems, adminNavItem] : commonNavItems;
+  const navItems = user?.role === 'admin' ? [...commonNavItems, adminNavItem] : commonNavItems;
 
   return (
     <header className="fixed top-0 w-full bg-background/95 backdrop-blur-sm border-b border-border z-50">
@@ -48,7 +50,14 @@ const Header = () => {
                   </Link>
                 ))}
               </nav>
-              <div className="hidden md:flex items-center">
+              <div className="hidden md:flex items-center gap-3">
+                {user && (
+                  <div className="text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">{user.fullName}</span>
+                    <span className="ml-2 px-2 py-0.5 rounded bg-primary/10 text-primary text-xs uppercase">{user.role}</span>
+                  </div>
+                )}
+                <Link to="/profile"><Button variant="ghost">Profile</Button></Link>
                 <Button variant="outline" onClick={handleLogout}>Logout</Button>
               </div>
             </>

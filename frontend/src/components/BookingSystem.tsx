@@ -1,61 +1,88 @@
-
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { supabase } from "@/lib/supabaseClient";
+import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
-interface Counselor {
-  id: string;
-  name: string;
-  specialization: string;
-  availability: string[];
-}
-
-const counselors: Counselor[] = [
-  {
-    id: '1',
-    name: 'Dr. Sarah Johnson',
-    specialization: 'Anxiety & Depression',
-    availability: ["09:00 AM", "10:00 AM", "02:00 PM", "03:00 PM"]
-  },
-  {
-    id: '2',
-    name: 'Dr. Michael Chen',
-    specialization: 'Academic Stress & ADHD',
-    availability: ["11:00 AM", "02:00 PM", "04:00 PM"]
-  },
-  {
-    id: '3',
-    name: 'Dr. Emily Rodriguez',
-    specialization: 'Social Anxiety & Relationships',
-    availability: ["09:00 AM", "11:00 AM", "03:00 PM", "04:00 PM"]
-  }
-];
-
-const timeSlots = [
-  "09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"
-];
+type AvailableSlot = { label?: string } | string;
+interface Counselor { id: string; name: string; specialization: string | null; available_slots: AvailableSlot[] | null; }
+const timeSlots = ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"];
 
 const BookingSystem = () => {
+  const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [selectedCounselor, setSelectedCounselor] = useState<string>('');
+  const [counselors, setCounselors] = useState<Counselor[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await supabase.from('counselors').select('id, name, specialization, available_slots').eq('is_available', true);
+      if (error) { console.error(error); return; }
+      setCounselors(data ?? []);
+    })();
+  }, []);
+
+  // Reset selected time when counselor changes
+  useEffect(() => { setSelectedTime(null); }, [selectedCounselor]);
 
   const getAvailableTimesForCounselor = (counselorId: string) => {
     const counselor = counselors.find(c => c.id === counselorId);
-    return counselor ? counselor.availability : [];
+    // If available_slots is a JSON string, parse it
+    let slots: AvailableSlot[] = [];
+    if (counselor?.available_slots) {
+      if (typeof counselor.available_slots === 'string') {
+        try {
+          slots = JSON.parse(counselor.available_slots);
+        } catch {
+          slots = [];
+        }
+      } else if (Array.isArray(counselor.available_slots)) {
+        slots = counselor.available_slots;
+      }
+    }
+    // fallback to default list if not provided or empty
+    return slots.length > 0 ? slots.map((s: AvailableSlot) => (typeof s === 'string' ? s : (s.label ?? ''))) : timeSlots;
   };
 
-  const handleBooking = () => {
-    if (selectedDate && selectedTime && selectedCounselor) {
-      const counselor = counselors.find(c => c.id === selectedCounselor);
-      alert(`Session booked with ${counselor?.name} for ${selectedDate.toDateString()} at ${selectedTime}`);
-    } else {
-      alert("Please select a counselor, date and time.");
+  const handleBooking = async () => {
+    if (!(selectedDate && selectedTime && selectedCounselor)) {
+      toast({ title: 'Missing selection', description: 'Please select a counselor, date and time.', variant: 'destructive' });
+      return;
     }
+    if (!user?.id) { toast({ title: 'Please log in', description: 'You need to be logged in to book a session.' }); return; }
+    const counselor = counselors.find(c => c.id === selectedCounselor);
+    const dateStr = selectedDate.toISOString().split('T')[0];
+    const time24 = selectedTime;
+    const isoDateTime = new Date(`${dateStr}T${convertTo24Hour(time24)}:00`);
+    const { error } = await supabase.from('bookings').insert({
+      user_id: user.id,
+      counselor_id: selectedCounselor,
+      session_date: isoDateTime.toISOString(),
+      session_type: 'counseling',
+      status: 'pending',
+      notes: null,
+    });
+    if (error) {
+      toast({ title: 'Booking failed', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Booking requested', description: `Session with ${counselor?.name} on ${selectedDate.toDateString()} at ${selectedTime}` });
   };
+
+  function convertTo24Hour(time: string) {
+    // Very simple conversion expecting like "09:00 AM"
+    const [hhmm, ampm] = time.split(' ');
+    const [hh, mm] = hhmm.split(':').map(Number);
+    const minutes = mm;
+    if (ampm.toUpperCase() === 'PM' && hh !== 12) hh += 12;
+    if (ampm.toUpperCase() === 'AM' && hh === 12) hh = 0;
+    return `${String(hh).padStart(2,'0')}:${String(minutes).padStart(2,'0')}`;
+  }
 
   return (
     <section className="py-20 bg-muted/30">

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, XCircle, Clock, RefreshCw } from "lucide-react";
-import { TherabotAPI } from "@/lib/api";
+import { MindCareAIAPI } from "@/lib/api";
 
 interface StatusData {
   status: string;
@@ -24,7 +24,7 @@ const BackendStatusChecker = () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await TherabotAPI.getStatus();
+  const data = await MindCareAIAPI.getStatus();
       setStatus(data);
     } catch (err) {
       console.error('Error checking status:', err);

@@ -1,4 +1,4 @@
-// API Configuration for TheraBot Backend
+// API Configuration for MindCareAI Backend
 // This file centralizes all API endpoint configurations
 
 export const API_CONFIG = {
@@ -51,7 +51,7 @@ export interface StatusResponse {
 }
 
 // API Helper Functions
-export class TherabotAPI {
+export class MindCareAIAPI {
   static async sendMessage(message: string, sessionId?: string): Promise<ChatResponse> {
     const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CHAT}`, {
       method: 'POST',

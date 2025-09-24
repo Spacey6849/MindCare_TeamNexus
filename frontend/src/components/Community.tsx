@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,10 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { MessageSquare, Users, Clock, Pin, ThumbsUp, Reply, MoreHorizontal, HelpingHand, Send } from "lucide-react";
 import { Link } from "react-router-dom";
+import { supabase } from "@/lib/supabaseClient";
+import { useAuth } from "@/contexts/AuthContext";
+
 
 // Enhanced: Define a type for our Post for better state management
 interface ForumPost {
-  id: number;
+  id: string;
   title: string;
   author: string;
   category: string;
@@ -24,13 +26,31 @@ interface ForumPost {
   tags: string[];
 }
 
+// Supabase types
+interface SupabasePost {
+  id: string;
+  title: string;
+  category: string;
+  preview: string;
+  tags: string[];
+  likes_count: number;
+  replies_count: number;
+  created_at: string;
+}
+
 const Community = () => {
+  // Consume user from global AuthContext to avoid duped state
+  const { isAuthenticated, user } = useAuth();
+  const userId = user?.id ?? null;
   const [showNewPost, setShowNewPost] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   
   // Enhanced: State for active reply sections and their content
-  const [activeReply, setActiveReply] = useState<number | null>(null);
+  const [activeReply, setActiveReply] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState("");
+
+  // Show replies for a post
+  const [replies, setReplies] = useState<Record<string, string[]>>({});
 
   const forumStats = [
     { label: "Active Members", value: "2,847", icon: Users },
@@ -40,118 +60,95 @@ const Community = () => {
   ];
 
   // Enhanced: Expanded list of posts for a more dynamic "Load More" experience
-  const [allForumPosts, setAllForumPosts] = useState<ForumPost[]>([
-    {
-      id: 1,
-      title: "Managing exam anxiety - tips that actually work",
-      author: "Anonymous Student",
-      category: "Academic Stress",
-      timeAgo: "2h ago",
-      replies: 23,
-      likes: 47,
-      isPinned: true,
-      preview: "Hey everyone, I wanted to share some techniques that really helped me during finals week...",
-      tags: ["anxiety", "exams", "coping"],
-    },
-    {
-      id: 2,
-      title: "Feeling isolated in my dorm - anyone else?",
-      author: "FirstYear_2024",
-      category: "Social Connection",
-      timeAgo: "4h ago",
-      replies: 15,
-      likes: 28,
-      isPinned: false,
-      preview: "I moved away from home for college and I'm struggling to make connections. The loneliness is really getting to me...",
-      tags: ["loneliness", "social", "freshman"],
-    },
-    {
-      id: 3,
-      title: "Sleep schedule completely messed up",
-      author: "NightOwl_Student",
-      category: "Sleep & Wellness",
-      timeAgo: "6h ago",
-      replies: 31,
-      likes: 42,
-      isPinned: false,
-      preview: "I've been staying up until 3-4 AM studying and my sleep is all over the place. How do you maintain a healthy sleep routine?",
-      tags: ["sleep", "schedule", "health"],
-    },
-    {
-      id: 4,
-      title: "Starting therapy - what to expect?",
-      author: "NewToTherapy",
-      category: "Mental Health Support",
-      timeAgo: "8h ago",
-      replies: 18,
-      likes: 35,
-      isPinned: false,
-      preview: "I've finally decided to start therapy but I'm nervous about the first session. Any advice?",
-      tags: ["therapy", "first-time", "advice"],
-    },
-    {
-      id: 5,
-      title: "Coping with homesickness",
-      author: "OutOfStateFreshman",
-      category: "Social Connection",
-      timeAgo: "12h ago",
-      replies: 22,
-      likes: 29,
-      isPinned: false,
-      preview: "Being 1000 miles from home is harder than I thought. Missing family and friends more than expected.",
-      tags: ["homesickness", "family", "adjustment"],
-    },
-    {
-      id: 6,
-      title: "Study group success story",
-      author: "GroupStudyFan",
-      category: "Success Stories",
-      timeAgo: "1d ago",
-      replies: 8,
-      likes: 41,
-      isPinned: false,
-      preview: "Wanted to share how joining a study group completely changed my academic experience and mental health.",
-      tags: ["study-group", "success", "social"],
-    },
-     {
-      id: 7,
-      title: "Tips for making friends in large lectures?",
-      author: "QuietStudent",
-      category: "Social Connection",
-      timeAgo: "2d ago",
-      replies: 19,
-      likes: 33,
-      isPinned: false,
-      preview: "It feels impossible to meet people in a class of 300. How do you approach people without being awkward?",
-      tags: ["social", "friends", "university"],
-    },
-    {
-      id: 8,
-      title: "How do you handle roommate conflicts?",
-      author: "StressedRoommate",
-      category: "Social Connection",
-      timeAgo: "3d ago",
-      replies: 25,
-      likes: 38,
-      isPinned: false,
-      preview: "My roommate and I have completely different lifestyles and it's causing a lot of tension. Any advice for navigating this?",
-      tags: ["roommates", "conflict", "communication"],
-    },
-    {
-      id: 9,
-      title: "Positive outcomes from seeking help",
-      author: "GratefulStudent",
-      category: "Success Stories",
-      timeAgo: "4d ago",
-      replies: 12,
-      likes: 55,
-      isPinned: false,
-      preview: "I was hesitant to use campus resources, but I'm so glad I did. It made a huge difference.",
-      tags: ["success", "therapy", "support"],
-    },
-  ]);
-
+  const [allForumPosts, setAllForumPosts] = useState<ForumPost[]>([]);
   const [displayedPosts, setDisplayedPosts] = useState(3);
+
+  // New Post Form
+  const [newPostTitle, setNewPostTitle] = useState("");
+  const [newPostContent, setNewPostContent] = useState("");
+  const [newPostCategory, setNewPostCategory] = useState("");
+  const [newPostTags, setNewPostTags] = useState<string[]>([]);
+
+  // Resolve or create a Supabase users.id for the current app user
+  const resolveSupabaseUserId = async (): Promise<string | null> => {
+    // 1) Supabase auth session (if using Supabase Auth elsewhere)
+    const { data: { session } } = await supabase.auth.getSession();
+    const sid = session?.user?.id ?? null;
+    if (sid) return sid;
+
+    // 2) Cached mapping
+    try {
+      const cached = localStorage.getItem('auth:supabaseUserId');
+      if (cached) return cached;
+    } catch (e) {
+      console.warn('Community: failed to read cached supabase user id', e);
+    }
+
+    // 3) Lookup by email in public.users
+    if (user?.email) {
+      const { data: rows, error } = await supabase
+        .from('users')
+        .select('id')
+        .ilike('email', user.email);
+      if (!error && rows && rows.length > 0) {
+        const found = String(rows[0].id);
+        try { localStorage.setItem('auth:supabaseUserId', found); } catch (e) { console.warn('Community: cache supabase user id failed', e); }
+        return found;
+      }
+      // 4) Create a new users row and return its id
+      const { data: inserted, error: insErr } = await supabase
+        .from('users')
+        .insert({ email: user.email, full_name: user.fullName || 'Student' })
+        .select('id')
+        .single();
+      if (!insErr && inserted?.id) {
+        const nid = String(inserted.id);
+        try { localStorage.setItem('auth:supabaseUserId', nid); } catch (e) { console.warn('Community: cache new supabase user id failed', e); }
+        return nid;
+      }
+    }
+    return null;
+  };
+
+  useEffect(() => {
+    const fetchPosts = async () => {
+      const { data, error } = await supabase
+        .from("posts")
+        .select("id, title, category, preview, tags, likes_count, replies_count, created_at")
+        .order("created_at", { ascending: false });
+      if (error) {
+        console.error("Error fetching posts:", error.message);
+        setAllForumPosts([]);
+      } else {
+        setAllForumPosts(
+          (data || []).map((p: {
+            id: string;
+            title: string;
+            category: string;
+            preview: string;
+            tags: string[];
+            likes_count: number;
+            replies_count: number;
+            is_pinned?: boolean;
+            created_at: string;
+          }) => ({
+            id: String(p.id),
+            title: p.title,
+            author: "Anonymous Student",
+            category: p.category,
+            timeAgo: "", // TODO: format from created_at
+            replies: p.replies_count ?? 0,
+            likes: p.likes_count ?? 0,
+            isPinned: p.is_pinned ?? false,
+            preview: p.preview,
+            tags: p.tags || [],
+          }))
+        );
+      }
+    };
+    fetchPosts();
+  }, []);
+
   const forumPosts = allForumPosts.slice(0, displayedPosts);
 
   // FIX: Implemented handleLoadMore to add more posts
@@ -169,23 +166,128 @@ const Community = () => {
     }, 1000); // Simulate network delay
   };
   
-  // FIX: Implemented handleReplySubmit to add replies to posts
-  const handleReplySubmit = (postId: number) => {
-    if (!replyContent.trim()) {
-        toast.error("Reply cannot be empty.");
-        return;
+  // Like a post
+  const handleLike = async (postId: string) => {
+    const effectiveUserId = await resolveSupabaseUserId();
+    if (!effectiveUserId) {
+      toast.error("You must be logged in to like.");
+      return;
     }
-    // Backend Team: This is where you'd make an API call to submit the reply.
-    console.log(`Replying to post ${postId}:`, replyContent);
+    // optimistic UI update
+    setAllForumPosts(allForumPosts.map(p => p.id === postId ? { ...p, likes: p.likes + 1 } : p));
+  const post = allForumPosts.find(p => p.id === postId);
+    try {
+      // record like (unique per user/post)
+      const { error: likeErr } = await supabase
+        .from("post_likes")
+        .insert({ post_id: postId, user_id: effectiveUserId });
+      // If unique violation (user already liked), ignore; otherwise propagate
+      if (likeErr && (likeErr as { code?: string }).code !== '23505') {
+        throw likeErr;
+      }
+      // bump counter
+      await supabase.from("posts").update({ likes_count: (post?.likes ?? 0) + 1 }).eq("id", postId);
+    } catch (e) {
+      // rollback UI on failure
+      setAllForumPosts(allForumPosts.map(p => p.id === postId ? { ...p, likes: Math.max(0, p.likes - 1) } : p));
+      toast.error("Failed to like post");
+    }
+  };
 
-    // Frontend update simulation
-    setAllForumPosts(allForumPosts.map(p => 
-        p.id === postId ? { ...p, replies: p.replies + 1 } : p
-    ));
-
+  // Reply to a post
+  const handleReplySubmit = async (postId: string) => {
+    if (!replyContent.trim()) {
+      toast.error("Reply cannot be empty.");
+      return;
+    }
+    const effectiveUserId = await resolveSupabaseUserId();
+    if (!effectiveUserId) {
+      toast.error("You must be logged in to reply.");
+      return;
+    }
+    // Store reply in Supabase
+    await supabase.from("post_replies").insert({ post_id: postId, user_id: effectiveUserId, content: replyContent, is_anonymous: true });
+    // Update reply count in posts table
+    const post = allForumPosts.find(p => p.id === postId);
+    if (post) {
+      await supabase.from("posts").update({ replies_count: post.replies + 1 }).eq("id", postId);
+      setAllForumPosts(allForumPosts.map(p => p.id === postId ? { ...p, replies: p.replies + 1 } : p));
+    }
     toast.success("Your reply has been posted!");
-    setActiveReply(null); // Close the reply input
-    setReplyContent(""); // Reset the input field
+  setActiveReply(null);
+    setReplyContent("");
+  };
+
+  // Toggle replies visibility and fetch replies from Supabase
+  const handleShowReplies = async (postId: string) => {
+    if (replies[postId]) {
+      // Toggle off: remove key cleanly
+      setReplies((prev) => {
+        const next = { ...prev } as Record<string, string[]>;
+        delete next[postId];
+        return next;
+      });
+      return;
+    }
+    const { data, error } = await supabase
+      .from("post_replies")
+      .select("content")
+      .eq("post_id", postId)
+      .order("created_at", { ascending: true });
+    if (error) {
+      toast.error("Failed to load replies");
+      return;
+    }
+    setReplies((prev) => ({ ...prev, [postId]: (data || []).map((r: { content: string }) => r.content) }));
+  };
+
+  const handleCreatePost = async () => {
+    if (!newPostTitle.trim() || !newPostContent.trim()) {
+      toast.error("Title and content required.");
+      return;
+    }
+    // Resolve a stable Supabase users.id UUID
+    const effectiveUserId = await resolveSupabaseUserId();
+    if (!effectiveUserId) {
+      toast.error("You must be logged in to post.");
+      return;
+    }
+    await supabase.from("posts").insert({
+      user_id: effectiveUserId,
+      title: newPostTitle,
+      content: newPostContent,
+      preview: newPostContent.slice(0, 100),
+      category: newPostCategory || "General",
+      tags: newPostTags,
+      is_pinned: false,
+      likes_count: 0,
+      replies_count: 0
+    });
+    setShowNewPost(false);
+    setNewPostTitle("");
+    setNewPostContent("");
+    setNewPostCategory("");
+    setNewPostTags([]);
+    toast.success("Post created!");
+    // Refresh posts
+    const { data } = await supabase
+      .from("posts")
+      .select("id, title, category, preview, tags, likes_count, replies_count, created_at")
+      .order("created_at", { ascending: false });
+    setAllForumPosts(
+      (data || []).map((p: SupabasePost) => ({
+        id: p.id,
+        title: p.title,
+        author: "Anonymous Student",
+        category: p.category,
+        timeAgo: "",
+        replies: p.replies_count ?? 0,
+        likes: p.likes_count ?? 0,
+        isPinned: false,
+        preview: p.preview,
+        tags: p.tags || [],
+      }))
+    );
   };
 
   const categoryColors = {
@@ -247,11 +349,13 @@ const Community = () => {
                     <CardTitle>Create a New Post</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <Input placeholder="Post Title" />
-                    <Textarea placeholder="Share your thoughts... (Remember to be respectful and avoid sharing personal information)" rows={4} />
+                    <Input placeholder="Post Title" value={newPostTitle} onChange={e => setNewPostTitle(e.target.value)} />
+                    <Textarea placeholder="Share your thoughts... (Remember to be respectful and avoid sharing personal information)" rows={4} value={newPostContent} onChange={e => setNewPostContent(e.target.value)} />
+                    <Input placeholder="Category (optional)" value={newPostCategory} onChange={e => setNewPostCategory(e.target.value)} />
+                    <Input placeholder="Tags (comma separated, optional)" value={newPostTags.join(", ")} onChange={e => setNewPostTags(e.target.value.split(",").map(t => t.trim()))} />
                     <div className="flex justify-end space-x-2">
-                        <Button variant="outline" onClick={() => setShowNewPost(false)}>Cancel</Button>
-                        <Button>Post</Button>
+                      <Button variant="outline" onClick={() => setShowNewPost(false)}>Cancel</Button>
+                      <Button onClick={handleCreatePost}>Post</Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -316,19 +420,24 @@ const Community = () => {
                         </div>
 
                         <div className="flex items-center space-x-4">
-                          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-muted-foreground hover:text-primary"
+                            onClick={() => handleLike(post.id)}
+                          >
                             <ThumbsUp className="h-4 w-4 mr-1" />
                             {post.likes}
                           </Button>
-                           <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="text-muted-foreground hover:text-primary"
-                              onClick={() => setActiveReply(activeReply === post.id ? null : post.id)}
-                            >
-                              <Reply className="h-4 w-4 mr-1" />
-                              {post.replies}
-                            </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-muted-foreground hover:text-primary"
+                            onClick={() => handleShowReplies(post.id)}
+                          >
+                            <Reply className="h-4 w-4 mr-1" />
+                            {post.replies}
+                          </Button>
                         </div>
                       </div>
                       
@@ -346,6 +455,19 @@ const Community = () => {
                                     <Send className="h-4 w-4"/>
                                 </Button>
                            </div>
+                        </div>
+                      )}
+
+                      {/* Replies section */}
+                      {replies[post.id] && (
+                        <div className="mt-2 pl-4 border-l border-border/30">
+                          {replies[post.id].length === 0 ? (
+                            <span className="text-xs text-muted-foreground">No replies yet.</span>
+                          ) : (
+                            replies[post.id].map((reply, idx) => (
+                              <div key={idx} className="mb-2 text-sm text-muted-foreground">{reply}</div>
+                            ))
+                          )}
                         </div>
                       )}
                     </CardContent>

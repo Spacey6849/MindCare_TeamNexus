@@ -1,4 +1,3 @@
-
 import {
   Card,
   CardContent,
@@ -13,48 +12,101 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Bot, BookOpen, Users, MessageSquare, Trash2, UserPlus } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
+
+interface Counselor {
+  id: string;
+  name: string;
+  contact_email: string;
+  is_available: boolean;
+  specialization?: string;
+  experience_years?: number;
+  bio?: string;
+  available_slots?: object;
+}
 
 const AdminSystemSettings = () => {
-  // Backend team will replace this with a state management solution (e.g., React Query)
-  const [counselors, setCounselors] = useState([
-    { id: 1, name: "Dr. Sarah Johnson", email: "s.johnson@university.edu", isAvailable: true },
-    { id: 2, name: "Dr. Michael Chen", email: "m.chen@university.edu", isAvailable: true },
-    { id: 3, name: "Dr. Emily Rodriguez", email: "e.rodriguez@university.edu", isAvailable: false },
-  ]);
-
+  const [counselors, setCounselors] = useState<Counselor[]>([]);
+  const [loading, setLoading] = useState(false);
   const [newCounselor, setNewCounselor] = useState({ name: "", email: "" });
 
-  const handleAddCounselor = () => {
+  useEffect(() => {
+    const fetchCounselors = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("counselors")
+        .select("id, name, contact_email, is_available, specialization, experience_years, bio, available_slots")
+        .order("created_at", { ascending: false });
+      if (error) {
+        console.error("Error fetching counselors:", error.message);
+        setCounselors([]);
+      } else {
+        setCounselors(data || []);
+      }
+      setLoading(false);
+    };
+    fetchCounselors();
+  }, []);
+
+  const handleAddCounselor = async () => {
     if (newCounselor.name && newCounselor.email) {
-      setCounselors([
-        ...counselors,
-        {
-          id: counselors.length + 1, // Placeholder ID
-          ...newCounselor,
-          isAvailable: true,
-        },
-      ]);
+      setLoading(true);
+      const { error } = await supabase
+        .from("counselors")
+        .insert({
+          name: newCounselor.name,
+          contact_email: newCounselor.email,
+          is_available: true,
+        });
+      if (error) {
+        console.error("Error adding counselor:", error.message);
+      }
       setNewCounselor({ name: "", email: "" });
-      // Backend team: Add API call to persist the new counselor
-      console.log("Frontend: New counselor added. Backend integration needed.");
+      // Refresh list
+      const { data } = await supabase
+        .from("counselors")
+        .select("id, name, contact_email, is_available, specialization, experience_years, bio, available_slots")
+        .order("created_at", { ascending: false });
+      setCounselors(data || []);
+      setLoading(false);
     }
   };
 
-  const handleRemoveCounselor = (id: number) => {
-    setCounselors(counselors.filter((c) => c.id !== id));
-    // Backend team: Add API call to remove the counselor
-    console.log(`Frontend: Counselor with id ${id} removed. Backend integration needed.`);
+  const handleRemoveCounselor = async (id: string) => {
+    setLoading(true);
+    const { error } = await supabase
+      .from("counselors")
+      .delete()
+      .eq("id", id);
+    if (error) {
+      console.error("Error removing counselor:", error.message);
+    }
+    // Refresh list
+    const { data } = await supabase
+      .from("counselors")
+      .select("id, name, contact_email, is_available, specialization, experience_years, bio, available_slots")
+      .order("created_at", { ascending: false });
+    setCounselors(data || []);
+    setLoading(false);
   };
 
-  const handleToggleAvailability = (id: number) => {
-    setCounselors(
-      counselors.map((c) =>
-        c.id === id ? { ...c, isAvailable: !c.isAvailable } : c
-      )
-    );
-    // Backend team: Add API call to update availability
-    console.log(`Frontend: Availability for counselor ${id} toggled. Backend integration needed.`);
+  const handleToggleAvailability = async (id: string, current: boolean) => {
+    setLoading(true);
+    const { error } = await supabase
+      .from("counselors")
+      .update({ is_available: !current })
+      .eq("id", id);
+    if (error) {
+      console.error("Error updating availability:", error.message);
+    }
+    // Refresh list
+    const { data } = await supabase
+      .from("counselors")
+      .select("id, name, contact_email, is_available, specialization, experience_years, bio, available_slots")
+      .order("created_at", { ascending: false });
+    setCounselors(data || []);
+    setLoading(false);
   };
 
   return (
@@ -137,24 +189,39 @@ const AdminSystemSettings = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Counselor List */}
-                {counselors.map((counselor) => (
+                {loading ? (
+                  <p className="text-center text-muted-foreground">Loading counselors...</p>
+                ) : counselors.length === 0 ? (
+                  <p className="text-center text-muted-foreground">No counselors found.</p>
+                ) : (
+                  counselors.map((counselor) => (
                     <div key={counselor.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between rounded-lg border p-4 gap-3">
-                        <div className="flex flex-col">
-                            <span className="font-semibold">{counselor.name}</span>
-                            <span className="text-sm text-muted-foreground">{counselor.email}</span>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <Switch 
-                              id={`counselor-${counselor.id}`} 
-                              checked={counselor.isAvailable} 
-                              onCheckedChange={() => handleToggleAvailability(counselor.id)}
-                            />
-                            <Button variant="ghost" size="icon" onClick={() => handleRemoveCounselor(counselor.id)}>
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                        </div>
+                      <div className="flex flex-col">
+                        <span className="font-semibold">{counselor.name}</span>
+                        <span className="text-sm text-muted-foreground">{counselor.contact_email}</span>
+                        {counselor.specialization && (
+                          <span className="text-xs text-muted-foreground">{counselor.specialization}</span>
+                        )}
+                        {counselor.experience_years && (
+                          <span className="text-xs text-muted-foreground">Experience: {counselor.experience_years} years</span>
+                        )}
+                        {counselor.bio && (
+                          <span className="text-xs text-muted-foreground">{counselor.bio}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <Switch
+                          id={`counselor-${counselor.id}`}
+                          checked={!!counselor.is_available}
+                          onCheckedChange={() => handleToggleAvailability(counselor.id, !!counselor.is_available)}
+                        />
+                        <Button variant="ghost" size="icon" onClick={() => handleRemoveCounselor(counselor.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </div>
-                ))}
+                  ))
+                )}
               </CardContent>
               {/* Add New Counselor Form */}
               <CardFooter className="border-t p-6 flex-col items-start gap-4">

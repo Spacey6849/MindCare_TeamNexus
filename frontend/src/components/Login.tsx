@@ -49,8 +49,15 @@ const Login = () => {
           body: JSON.stringify({ email: emailEl.value, password: pwd })
         });
         if (!resp.ok) {
-          const body = await resp.text();
-          toast({ title: 'Login failed', description: body || 'Invalid credentials', variant: 'destructive' });
+          let description = 'Invalid credentials';
+          try {
+            const j = await resp.json();
+            description = j?.details || j?.error || description;
+          } catch {
+            const t = await resp.text();
+            if (t) description = t;
+          }
+          toast({ title: 'Login failed', description, variant: 'destructive' });
           return;
         }
         const data = await resp.json();
@@ -124,23 +131,7 @@ const Login = () => {
           </form>
         </Card>
 
-        {/* Demo Login Section */}
-        <Card className="mt-6 bg-muted/50 border-dashed">
-            <CardHeader>
-                <CardTitle className="text-center text-base font-semibold">Demo Access</CardTitle>
-                <CardDescription className="text-center text-xs">For demonstration and testing purposes.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex justify-center gap-4">
-        <Button variant="outline" onClick={handleStudentLogin}>
-                    <Users className="mr-2 h-4 w-4" />
-                    Login as Student
-                </Button>
-        <Button variant="secondary" onClick={handleAdminLogin}>
-                    <Shield className="mr-2 h-4 w-4" />
-                    Login as Admin
-                </Button>
-            </CardContent>
-        </Card>
+    {/* ...existing code... */}
       </div>
     </div>
   );
